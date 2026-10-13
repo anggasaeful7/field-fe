@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Users } from "lucide-react";
+import { LucideIcon, LayoutDashboard, FileText, Users } from "lucide-react";
 
 export interface ChildItem {
   id?: number | string;
@@ -41,10 +41,16 @@ const SidebarContent: MenuItem[] = [
     heading: "Menu Utama",
     items: [
       {
+        id: "nav-dashboard",
+        name: "Dashboard",
+        icon: LayoutDashboard,
+        url: "/",
+      },
+      {
         id: "nav-reports",
         name: "Laporan Lapangan",
         icon: FileText,
-        url: "/",
+        url: "/reports",
       },
       {
         id: "nav-users",

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const FullLayout = Loadable(lazy(() => import('../layouts/full/FullLayout')));
 const BlankLayout = Loadable(lazy(() => import('../layouts/blank/BlankLayout')));
 
+const DashboardOverview = Loadable(lazy(() => import('../views/dashboard/DashboardOverview')));
 const ReportDashboard = Loadable(lazy(() => import('../views/reports/ReportDashboard')));
 const UserManagement = Loadable(lazy(() => import('../views/users/UserManagement')));
 
@@ -36,7 +37,8 @@ const Router = [
       </ProtectedRoute>
     ),
     children: [
-      { path: '/', element: <ReportDashboard /> },
+      { path: '/', element: <DashboardOverview /> },
+      { path: '/dashboard', element: <DashboardOverview /> },
       { path: '/reports', element: <ReportDashboard /> },
       { path: '/admin/users', element: <AdminRoute><UserManagement /></AdminRoute> },
       { path: '*', element: <Navigate to="/auth/404" /> },

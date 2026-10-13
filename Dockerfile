@@ -18,6 +18,13 @@ RUN npm run build
 FROM nginx:alpine AS runner
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Environment variables with defaults (overridable on Railway / VPS)
+ENV BACKEND_URL=https://field-be-production.up.railway.app
+ENV NGINX_ENVSUBST_FILTER="BACKEND_URL"
+
+# Copy template for envsubst entrypoint and default fallback
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

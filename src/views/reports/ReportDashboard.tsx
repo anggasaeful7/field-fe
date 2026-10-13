@@ -1,6 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit2, CheckCircle2, XCircle, Search, RefreshCw, FileText, Check, X, Clock } from 'lucide-react';
+import {
+  Plus,
+  Edit2,
+  CheckCircle2,
+  XCircle,
+  Search,
+  RefreshCw,
+  FileText,
+  Check,
+  X,
+  Clock,
+  Eye,
+  History,
+  User
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +37,15 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { apiFetch } from '@/lib/api';
 
+interface ReportLog {
+  id: number;
+  action: 'created' | 'updated' | 'approved' | 'rejected' | string;
+  notes: string | null;
+  created_at: string;
+  actor_name: string;
+  actor_role: string;
+}
+
 interface Report {
   id: number;
   nama: string;
@@ -35,6 +58,11 @@ interface Report {
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface ReportDetail extends Report {
+  reporter_email?: string;
+  logs?: ReportLog[];
 }
 
 const ReportDashboard = () => {
@@ -54,6 +82,10 @@ const ReportDashboard = () => {
   const [editNama, setEditNama] = useState('');
   const [editDeskripsi, setEditDeskripsi] = useState('');
   const [submittingEdit, setSubmittingEdit] = useState(false);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailReport, setDetailReport] = useState<ReportDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
@@ -140,6 +172,21 @@ const ReportDashboard = () => {
     }
   };
 
+  const openDetailModal = async (id: number) => {
+    setDetailOpen(true);
+    setLoadingDetail(true);
+    try {
+      const res = await apiFetch<ReportDetail>(`/api/reports/${id}`);
+      if (res.success && res.data) {
+        setDetailReport(res.data);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal memuat detail laporan');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
   const handleStatusChange = async (id: number, status: 'approved' | 'rejected') => {
     setActionLoadingId(id);
     try {
@@ -151,6 +198,9 @@ const ReportDashboard = () => {
       if (res.success && res.data) {
         toast.success(`Laporan #${id} diubah menjadi ${status}`);
         setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...res.data! } : r)));
+        if (detailOpen && detailReport?.id === id) {
+          openDetailModal(id);
+        }
       }
     } catch (err: any) {
       toast.error(err.message || 'Gagal mengubah status');
@@ -358,6 +408,17 @@ const ReportDashboard = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {/* Tombol Detail Laporan */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDetailModal(report.id)}
+                        className="h-7 px-2 text-xs cursor-pointer gap-1 text-foreground hover:bg-muted"
+                      >
+                        <Eye className="size-3 text-muted-foreground" />
+                        Detail
+                      </Button>
+
                       {/* Pelapor Edit Button: Enabled only when status is pending */}
                       {isPelapor && (
                         report.status === 'pending' ? (
@@ -371,7 +432,7 @@ const ReportDashboard = () => {
                             Edit
                           </Button>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground italic pr-2">Terkunci</span>
+                          <span className="text-[11px] text-muted-foreground italic pr-1">Terkunci</span>
                         )
                       )}
 
@@ -489,6 +550,209 @@ const ReportDashboard = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Detail Laporan & Timeline Riwayat */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[88vh] flex flex-col p-6">
+          <DialogHeader className="pb-3 border-b shrink-0">
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <div>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                  <span>Detail Laporan #{detailReport?.id}</span>
+                  {detailReport && renderStatusBadge(detailReport.status)}
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {detailReport
+                    ? `Dibuat pada ${new Date(detailReport.created_at).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}`
+                    : 'Memuat data laporan...'}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {loadingDetail ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <RefreshCw className="size-6 animate-spin text-primary" />
+              <span className="text-xs">Memuat detail & riwayat laporan...</span>
+            </div>
+          ) : !detailReport ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              Laporan tidak ditemukan.
+            </div>
+          ) : (
+            <div className="overflow-y-auto space-y-4 py-3 pr-1">
+              {/* Box Rincian Data */}
+              <div className="rounded-lg border bg-muted/20 p-3.5 space-y-3">
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Nama Laporan
+                  </span>
+                  <p className="text-sm font-semibold text-foreground mt-0.5">{detailReport.nama}</p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Deskripsi Kegiatan
+                  </span>
+                  <p className="text-xs text-foreground/90 mt-0.5 whitespace-pre-wrap leading-relaxed">
+                    {detailReport.deskripsi}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t text-xs">
+                  <div>
+                    <span className="text-[11px] text-muted-foreground">Pelapor:</span>
+                    <p className="font-medium text-foreground">{detailReport.reporter_name}</p>
+                    {detailReport.reporter_email && (
+                      <p className="text-[11px] text-muted-foreground">{detailReport.reporter_email}</p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-muted-foreground">Status / Peninjau:</span>
+                    <p className="font-medium text-foreground">
+                      {detailReport.reviewer_name ? detailReport.reviewer_name : 'Belum Ditinjau'}
+                    </p>
+                    {detailReport.reviewed_at && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(detailReport.reviewed_at).toLocaleString('id-ID', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline Riwayat Aktivitas */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <History className="size-3.5 text-primary" />
+                    <span>Timeline Riwayat Aktivitas</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    {detailReport.logs?.length || 0} catatan riwayat
+                  </span>
+                </div>
+
+                {!detailReport.logs || detailReport.logs.length === 0 ? (
+                  <div className="p-4 border rounded-lg text-center text-xs text-muted-foreground">
+                    Belum ada riwayat aktivitas tercatat.
+                  </div>
+                ) : (
+                  <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                    {detailReport.logs.map((log) => (
+                      <div key={log.id} className="relative flex items-start gap-3">
+                        <span
+                          className={`absolute -left-6 top-1 size-5 rounded-full flex items-center justify-center text-white ring-4 ring-background shadow-xs ${
+                            log.action === 'created'
+                              ? 'bg-blue-600'
+                              : log.action === 'updated'
+                              ? 'bg-amber-600'
+                              : log.action === 'approved'
+                              ? 'bg-emerald-600'
+                              : 'bg-rose-600'
+                          }`}
+                        >
+                          {log.action === 'created' && <Plus className="size-3" />}
+                          {log.action === 'updated' && <Edit2 className="size-3" />}
+                          {log.action === 'approved' && <Check className="size-3" />}
+                          {log.action === 'rejected' && <X className="size-3" />}
+                        </span>
+
+                        <div className="flex-1 rounded-lg border bg-card p-3 shadow-2xs text-xs space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-foreground">
+                              {log.action === 'created'
+                                ? 'Laporan Dibuat'
+                                : log.action === 'updated'
+                                ? 'Laporan Diperbarui'
+                                : log.action === 'approved'
+                                ? 'Laporan Disetujui'
+                                : 'Laporan Ditolak'}
+                            </span>
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              {new Date(log.created_at).toLocaleString('id-ID', {
+                                dateStyle: 'medium',
+                                timeStyle: 'medium',
+                              })}
+                            </span>
+                          </div>
+
+                          <p className="text-muted-foreground text-[11px] leading-relaxed">
+                            {log.notes || '-'}
+                          </p>
+
+                          <div className="pt-1.5 mt-1.5 border-t flex items-center justify-between text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <User className="size-3 text-muted-foreground" />
+                              <span>
+                                Oleh: <strong className="text-foreground">{log.actor_name}</strong>
+                              </span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                              {log.actor_role}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-3 border-t shrink-0 flex items-center justify-between sm:justify-between w-full">
+            <div className="flex items-center gap-1.5">
+              {(isApprover || isAdmin) && detailReport && (
+                <>
+                  <Button
+                    variant={detailReport.status === 'approved' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleStatusChange(detailReport.id, 'approved')}
+                    disabled={actionLoadingId === detailReport.id}
+                    className={`h-8 px-2.5 text-xs cursor-pointer gap-1 ${
+                      detailReport.status === 'approved'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                    }`}
+                  >
+                    <Check className="size-3.5" />
+                    Approve
+                  </Button>
+
+                  <Button
+                    variant={detailReport.status === 'rejected' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleStatusChange(detailReport.id, 'rejected')}
+                    disabled={actionLoadingId === detailReport.id}
+                    className={`h-8 px-2.5 text-xs cursor-pointer gap-1 ${
+                      detailReport.status === 'rejected'
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                        : 'border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                    }`}
+                  >
+                    <X className="size-3.5" />
+                    Reject
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDetailOpen(false)}
+              className="cursor-pointer text-xs"
+            >
+              Tutup
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
