@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://field-be-production.up.railway.app' : '');
 
 export interface ApiResponse<T = any> {
   success: boolean;
